@@ -1,0 +1,15 @@
+node_modules
+build
+.DS_Store
+.env
+*.log
+*.zip
+
+# Editor
+.vscode
+.idea
+
+# Netlify
+.netlify
+
+
