@@ -20,6 +20,7 @@ export default function App() {
   const [slideDirection, setSlideDirection] = useState<'up' | 'down' | 'left' | 'right'>('down');
   const [campaignCompleted, setCampaignCompleted] = useState(false);
   const [isNavigating, setIsNavigating] = useState(false);
+  const [showDevMenu, setShowDevMenu] = useState(false);
   const userJourney = useUserJourney();
 
   const handleCampaignComplete = (data: { 
@@ -234,8 +235,22 @@ export default function App() {
           {renderScreen()}
         </div>
 
+        {/* Hamburger Menu Button */}
+        <button
+          onClick={() => setShowDevMenu(!showDevMenu)}
+          className="fixed bottom-4 left-4 bg-black/90 text-white p-2 rounded-lg z-50 backdrop-blur-sm hover:bg-black/95 transition-colors"
+          aria-label="Toggle development menu"
+        >
+          <div className="w-5 h-5 flex flex-col justify-center items-center gap-1">
+            <div className={`w-3 h-0.5 bg-white transition-transform duration-200 ${showDevMenu ? 'rotate-45 translate-y-1' : ''}`} />
+            <div className={`w-3 h-0.5 bg-white transition-opacity duration-200 ${showDevMenu ? 'opacity-0' : ''}`} />
+            <div className={`w-3 h-0.5 bg-white transition-transform duration-200 ${showDevMenu ? '-rotate-45 -translate-y-1' : ''}`} />
+          </div>
+        </button>
+
         {/* Development Navigation Menu */}
-        <div className="fixed bottom-4 left-4 bg-black/90 text-white p-3 rounded-lg text-xs font-mono z-50 max-w-sm backdrop-blur-sm">
+        {showDevMenu && (
+        <div className={`fixed top-4 left-4 bg-black/90 text-white p-4 rounded-lg text-xs font-mono z-50 max-w-sm backdrop-blur-sm transition-all duration-300`} aria-hidden={!showDevMenu}>
           <div className="mb-3">
             <div className="font-semibold text-yellow-300 mb-1">Current: {currentScreen}</div>
             {campaignCompleted && userJourney.journeyData && (
@@ -380,6 +395,15 @@ export default function App() {
             Dev Navigation • Swipe or Click
           </div>
         </div>
+        )}
+
+        {/* Mobile Overlay */}
+        {showDevMenu && (
+          <div 
+            className="fixed inset-0 bg-black/20 z-40 md:hidden"
+            onClick={() => setShowDevMenu(false)}
+          />
+        )}
 
 
       </ErrorBoundary>
