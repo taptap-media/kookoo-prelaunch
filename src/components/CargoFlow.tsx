@@ -131,8 +131,16 @@ export function CargoFlow({ onNavigate, userJourney }: CargoFlowProps) {
       // Handle back navigation - always go to previous step
       setCurrentStep(currentStep - 1);
     } else {
-      // Only exit to main navigation when at the first step
-      onNavigate('right');
+      // At first step - go back to previous screen in journey
+      // If user came from campaign, go to narrative (story)
+      // If user came from hero, go back to hero
+      if (userJourney.isRouteSet()) {
+        // User came from campaign, go to narrative
+        onNavigate('up');
+      } else {
+        // User came from hero page, go back to hero
+        onNavigate('right');
+      }
     }
   };
 
@@ -258,7 +266,7 @@ export function CargoFlow({ onNavigate, userJourney }: CargoFlowProps) {
         )}
       </div>
 
-      <div className="space-y-3 max-h-80 overflow-y-auto">
+      <div className="space-y-3 max-h-80 overflow-y-auto px-2 py-2">
         {cargoCategories.map((cargo) => (
           <motion.button
             key={cargo.id}
@@ -295,6 +303,104 @@ export function CargoFlow({ onNavigate, userJourney }: CargoFlowProps) {
           </motion.button>
         ))}
       </div>
+
+      {/* Package Sizing Tool */}
+      {formData.cargoTypes.length > 0 && (
+        <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+          <h3 className="text-sm font-medium mb-3" style={{ color: '#023047' }}>
+            Package Size & Weight
+          </h3>
+          <p className="text-xs text-gray-600 mb-4">
+            Scroll up/down to see all options • Swipe left/right to compare sizes
+          </p>
+          
+          <div className="grid grid-cols-2 gap-3 max-h-60 overflow-y-auto">
+            {weightOptions.map((option) => (
+              <motion.button
+                key={option.value}
+                onClick={() => updateForm({ weight: option.value })}
+                className={`p-3 rounded-lg border-2 text-left transition-all ${
+                  formData.weight === option.value
+                    ? 'border-[#FB8500] bg-orange-50' 
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                data-no-swipe="true"
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <div className={`w-3 h-3 rounded ${
+                    option.value.includes('under-50') ? 'bg-green-400' :
+                    option.value.includes('50-200') ? 'bg-yellow-400' :
+                    option.value.includes('200-500') ? 'bg-orange-400' :
+                    option.value.includes('500-1000') ? 'bg-red-400' :
+                    option.value.includes('1000-2000') ? 'bg-purple-400' :
+                    option.value.includes('over-2000') ? 'bg-indigo-400' :
+                    option.value.includes('pallet') ? 'bg-blue-400' :
+                    option.value.includes('multiple') ? 'bg-pink-400' :
+                    'bg-gray-400'
+                  }`} />
+                  <span className="text-sm font-medium">{option.label}</span>
+                  {formData.weight === option.value && (
+                    <Check className="w-3 h-3 text-[#FB8500] ml-auto" />
+                  )}
+                </div>
+                <p className="text-xs text-gray-600">{option.description}</p>
+                
+                {/* Visual size representation */}
+                <div className="mt-2 flex justify-center">
+                  <div className={`${
+                    option.value.includes('under-50') ? 'w-4 h-4' :
+                    option.value.includes('50-200') ? 'w-6 h-6' :
+                    option.value.includes('200-500') ? 'w-8 h-8' :
+                    option.value.includes('500-1000') ? 'w-10 h-10' :
+                    option.value.includes('1000-2000') ? 'w-12 h-12' :
+                    option.value.includes('over-2000') ? 'w-14 h-14' :
+                    option.value.includes('pallet') ? 'w-16 h-12' :
+                    option.value.includes('multiple') ? 'w-20 h-12' :
+                    'w-24 h-12'
+                  } bg-gray-300 rounded border`} />
+                </div>
+              </motion.button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Cost Estimation Display */}
+      {formData.weight && formData.urgency && (
+        <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="flex items-center gap-2 mb-2">
+            <TrendingUp className="w-4 h-4 text-blue-600" />
+            <h3 className="text-sm font-medium text-blue-900">Estimated Cost</h3>
+          </div>
+          
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-2xl font-bold text-blue-900">
+              ${calculateEstimatedCost()?.toLocaleString()}
+            </span>
+            <Badge variant="outline" className="text-xs">
+              {formData.urgency === 'urgent' ? '🚀 Express' :
+               formData.urgency === 'priority' ? '⚡ Priority' :
+               formData.urgency === 'standard' ? '📦 Standard' :
+               formData.urgency === 'economical' ? '💰 Economical' :
+               '📊 Bulk'}
+            </Badge>
+          </div>
+          
+          <div className="text-xs text-blue-700 space-y-1">
+            <p>• {formData.urgency === 'urgent' ? '1-3 days delivery' :
+                 formData.urgency === 'priority' ? '1 week delivery' :
+                 formData.urgency === 'standard' ? '2-4 weeks delivery' :
+                 formData.urgency === 'economical' ? '1-2 months delivery' :
+                 'Bulk shipping rates'}</p>
+            {formData.specialNeeds.length > 0 && (
+              <p>• Special requirements: +{Math.round((formData.specialNeeds.length * 0.2) * 100)}%</p>
+            )}
+            <p>• Price includes handling and basic insurance</p>
+          </div>
+        </div>
+      )}
 
       {formData.cargoTypes.length === 0 && (
         <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
@@ -562,6 +668,46 @@ export function CargoFlow({ onNavigate, userJourney }: CargoFlowProps) {
         </div>
       )}
 
+      {/* Conversion CTAs */}
+      <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-cyan-50 border border-blue-200 rounded-lg">
+        <div className="text-center mb-4">
+          <h3 className="text-lg font-semibold mb-2" style={{ color: '#023047' }}>
+            Join the Cargo Network
+          </h3>
+          <p className="text-sm" style={{ color: '#717182' }}>
+            Get alerts, newsletters, and connect with other shippers
+          </p>
+        </div>
+        
+        <div className="grid grid-cols-1 gap-3">
+          <motion.button
+            className="w-full p-3 bg-[#FB8500] text-white rounded-lg font-medium text-sm flex items-center justify-center gap-2"
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            data-no-swipe="true"
+          >
+            <Users className="w-4 h-4" />
+            Sign Up for Cargo Alerts
+          </motion.button>
+          
+          <motion.button
+            className="w-full p-3 border-2 border-[#FB8500] text-[#FB8500] rounded-lg font-medium text-sm flex items-center justify-center gap-2"
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            data-no-swipe="true"
+          >
+            <Truck className="w-4 h-4" />
+            Join Partner Network
+          </motion.button>
+        </div>
+        
+        <div className="mt-3 text-xs text-center" style={{ color: '#717182' }}>
+          <p>✓ Get notified when cargo pools form on your route</p>
+          <p>✓ Access to exclusive partner rates and discounts</p>
+          <p>✓ Build your shipping network across the Caribbean</p>
+        </div>
+      </div>
+
       <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 mt-6">
         <p className="text-sm text-blue-800">
           🚚 <strong>Thank you!</strong> Your cargo demand helps us understand which routes to prioritize. 
@@ -577,7 +723,7 @@ export function CargoFlow({ onNavigate, userJourney }: CargoFlowProps) {
         {/* Header */}
         <div className="p-6 flex items-center justify-between border-b border-gray-200">
           <button
-            onClick={handleBack}
+            onClick={currentStep === STEPS.ROUTE ? () => onNavigate('right') : handleBack}
             className="flex items-center gap-2 text-sm"
             style={{ color: '#717182' }}
           >
@@ -634,9 +780,9 @@ export function CargoFlow({ onNavigate, userJourney }: CargoFlowProps) {
           <div className="flex gap-4 max-w-md mx-auto">
             <Button 
               variant="outline" 
-              onClick={handleBack} 
+              onClick={currentStep === STEPS.ROUTE ? () => onNavigate('right') : handleBack} 
               className="flex-1"
-              aria-label={currentStep === 0 ? 'Return to home' : 'Go back to previous step'}
+              aria-label={currentStep === STEPS.ROUTE ? 'Return to home' : 'Go back to previous step'}
             >
               {currentStep === STEPS.ROUTE ? 'Home' : 'Back'}
             </Button>

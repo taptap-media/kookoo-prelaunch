@@ -6,6 +6,7 @@ interface SwipeGestureOptions {
   onSwipeLeft?: () => void;
   onSwipeRight?: () => void;
   threshold?: number;
+  disabled?: boolean;
 }
 
 export function useSwipeGesture(options: SwipeGestureOptions) {
@@ -14,7 +15,8 @@ export function useSwipeGesture(options: SwipeGestureOptions) {
     onSwipeDown,
     onSwipeLeft,
     onSwipeRight,
-    threshold = 50
+    threshold = 50,
+    disabled = false
   } = options;
 
   const touchStartX = useRef<number>(0);
@@ -97,6 +99,11 @@ export function useSwipeGesture(options: SwipeGestureOptions) {
   }, [onSwipeUp, onSwipeDown, onSwipeLeft, onSwipeRight, threshold]);
 
   useEffect(() => {
+    // Don't add event listeners if disabled
+    if (disabled) {
+      return;
+    }
+
     document.addEventListener('touchstart', handleTouchStart, { passive: true });
     document.addEventListener('touchmove', handleTouchMove, { passive: true });
     document.addEventListener('touchend', handleTouchEnd, { passive: true });
@@ -106,7 +113,7 @@ export function useSwipeGesture(options: SwipeGestureOptions) {
       document.removeEventListener('touchmove', handleTouchMove);
       document.removeEventListener('touchend', handleTouchEnd);
     };
-  }, [handleTouchStart, handleTouchMove, handleTouchEnd]);
+  }, [handleTouchStart, handleTouchMove, handleTouchEnd, disabled]);
 
   return null;
 }

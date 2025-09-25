@@ -112,13 +112,15 @@ export default function App() {
     }
   };
 
-  // Set up swipe gestures with error handling and debouncing
+  // Swipe gestures disabled to prevent confusion in form flows
+  // Users should use button navigation instead
   useSwipeGesture({
     onSwipeUp: () => !isNavigating && navigate('up'),
     onSwipeDown: () => !isNavigating && navigate('down'),
     onSwipeLeft: () => !isNavigating && navigate('left'),
     onSwipeRight: () => !isNavigating && navigate('right'),
-    threshold: 100 // Increased threshold to prevent accidental swipes
+    threshold: 100, // Increased threshold to prevent accidental swipes
+    disabled: true // Disabled to prevent confusion in form flows
   });
 
   // Simple CSS transition classes instead of heavy animations

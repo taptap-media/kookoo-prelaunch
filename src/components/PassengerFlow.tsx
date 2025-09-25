@@ -64,6 +64,7 @@ export function PassengerFlow({ onNavigate, userJourney }: PassengerFlowProps) {
     origin: '',
     destination: '',
     dates: '',
+    dateType: '' as 'specific' | 'season' | '',
     reasons: [] as string[],
     specificEvents: [] as string[],
     travelers: ''
@@ -188,8 +189,16 @@ export function PassengerFlow({ onNavigate, userJourney }: PassengerFlowProps) {
           setCurrentStep(currentStep - 1);
         }
       } else {
-        // Only exit to main navigation when at the first step
-        onNavigate('left');
+        // At first step - go back to previous screen in journey
+        // If user came from campaign, go to narrative (story)
+        // If user came from hero, go back to hero
+        if (userJourney.isRouteSet()) {
+          // User came from campaign, go to narrative
+          onNavigate('up');
+        } else {
+          // User came from hero page, go back to hero
+          onNavigate('left');
+        }
       }
     } catch (error) {
       console.error('Error navigating back:', error);
@@ -217,9 +226,9 @@ export function PassengerFlow({ onNavigate, userJourney }: PassengerFlowProps) {
       case STEPS.ROUTE_DATE: 
         // If route is set from campaign, only need date
         if (userJourney.isRouteSet()) {
-          return Boolean(formData.dates);
+          return Boolean(formData.dateType && formData.dates);
         }
-        return Boolean(formData.origin && formData.destination && formData.dates);
+        return Boolean(formData.origin && formData.destination && formData.dateType && formData.dates);
       case STEPS.TRAVEL_REASONS: 
         return formData.reasons.length > 0;
       case STEPS.GROUP_SIZE: 
@@ -284,13 +293,14 @@ export function PassengerFlow({ onNavigate, userJourney }: PassengerFlowProps) {
         {(!userJourney.isRouteSet() || !formData.dates) && (
           <>
             <div>
-              <Label htmlFor="origin" className="text-sm">From which island?</Label>
+              <Label htmlFor="destination" className="text-sm font-medium">From / To</Label>
+              <p className="text-xs text-gray-500 mb-2">Choose your destination first, then we'll help you find the best route</p>
               <Select 
-                value={formData.origin} 
-                onValueChange={(value) => updateForm({origin: value})}
+                value={formData.destination} 
+                onValueChange={(value) => updateForm({destination: value})}
               >
-                <SelectTrigger className="mt-1" id="origin">
-                  <SelectValue placeholder="Select origin island..." />
+                <SelectTrigger className="mt-1" id="destination">
+                  <SelectValue placeholder="Where do you want to go?" />
                 </SelectTrigger>
                 <SelectContent>
                   {caribbeanCountries.map((country) => (
@@ -305,53 +315,125 @@ export function PassengerFlow({ onNavigate, userJourney }: PassengerFlowProps) {
               </Select>
             </div>
 
-            <div>
-              <Label htmlFor="destination" className="text-sm">To which island?</Label>
-              <Select 
-                value={formData.destination} 
-                onValueChange={(value) => updateForm({destination: value})}
-              >
-                <SelectTrigger className="mt-1" id="destination">
-                  <SelectValue placeholder="Select destination island..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {caribbeanCountries.filter(c => c.value !== formData.origin).map((country) => (
-                    <SelectItem key={country.value} value={country.value}>
-                      <div className="flex items-center gap-2">
-                        <span>{country.flag}</span>
-                        <span>{country.label}</span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {formData.destination && (
+              <div>
+                <Label htmlFor="origin" className="text-sm font-medium">Flying from</Label>
+                <p className="text-xs text-gray-500 mb-2">Select your departure island</p>
+                <Select 
+                  value={formData.origin} 
+                  onValueChange={(value) => updateForm({origin: value})}
+                >
+                  <SelectTrigger className="mt-1" id="origin">
+                    <SelectValue placeholder="Where are you flying from?" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {caribbeanCountries.filter(c => c.value !== formData.destination).map((country) => (
+                      <SelectItem key={country.value} value={country.value}>
+                        <div className="flex items-center gap-2">
+                          <span>{country.flag}</span>
+                          <span>{country.label}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             
             <div>
-              <Label htmlFor="dates" className="text-sm">When do you want to travel?</Label>
-              <Select 
-                value={formData.dates} 
-                onValueChange={(value) => updateForm({dates: value})}
-              >
-                <SelectTrigger className="mt-1" id="dates">
-                  <SelectValue placeholder="Select travel timeframe..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {travelTimeframes.map((timeframe) => (
-                    <SelectItem key={timeframe.value} value={timeframe.value}>
-                      <div className="flex items-center justify-between w-full">
-                        <span>{timeframe.label}</span>
-                        <Badge 
-                          variant="secondary" 
-                          className={`ml-2 text-xs ${getSeasonBadgeColor(timeframe.season)}`}
-                        >
-                          {getSeasonIcon(timeframe.season)} {timeframe.season}
-                        </Badge>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label htmlFor="dates" className="text-sm font-medium">When do you want to travel?</Label>
+              <p className="text-xs text-gray-500 mb-3">Choose how you'd like to select your travel dates</p>
+              
+              {/* Date Selection Type */}
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                <button
+                  onClick={() => updateForm({dateType: 'specific'})}
+                  className={`p-3 rounded-lg border-2 text-left transition-all ${
+                    formData.dateType === 'specific' 
+                      ? 'border-[#1CAFBF] bg-[#1CAFBF]/10' 
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <Calendar className="w-4 h-4" />
+                    <span className="font-medium text-sm">Specific Dates</span>
+                  </div>
+                  <p className="text-xs text-gray-600">Pick exact dates</p>
+                </button>
+                
+                <button
+                  onClick={() => updateForm({dateType: 'season'})}
+                  className={`p-3 rounded-lg border-2 text-left transition-all ${
+                    formData.dateType === 'season' 
+                      ? 'border-[#1CAFBF] bg-[#1CAFBF]/10' 
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <Trophy className="w-4 h-4" />
+                    <span className="font-medium text-sm">Season</span>
+                  </div>
+                  <p className="text-xs text-gray-600">Summer, Carnival, Christmas</p>
+                </button>
+              </div>
+
+              {/* Specific Dates Selection */}
+              {formData.dateType === 'specific' && (
+                <div className="space-y-3">
+                  <Select 
+                    value={formData.dates} 
+                    onValueChange={(value) => updateForm({dates: value})}
+                  >
+                    <SelectTrigger className="mt-1" id="dates">
+                      <SelectValue placeholder="Select specific timeframe..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {travelTimeframes.filter(t => !t.value.includes('season') && t.value !== 'flexible').map((timeframe) => (
+                        <SelectItem key={timeframe.value} value={timeframe.value}>
+                          <div className="flex items-center justify-between w-full">
+                            <span>{timeframe.label}</span>
+                            <Badge 
+                              variant="secondary" 
+                              className={`ml-2 text-xs ${getSeasonBadgeColor(timeframe.season)}`}
+                            >
+                              {getSeasonIcon(timeframe.season)} {timeframe.season}
+                            </Badge>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {/* Season Selection */}
+              {formData.dateType === 'season' && (
+                <div className="space-y-3">
+                  <Select 
+                    value={formData.dates} 
+                    onValueChange={(value) => updateForm({dates: value})}
+                  >
+                    <SelectTrigger className="mt-1" id="dates">
+                      <SelectValue placeholder="Choose a season..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {travelTimeframes.filter(t => t.value.includes('season') || t.value === 'flexible').map((timeframe) => (
+                        <SelectItem key={timeframe.value} value={timeframe.value}>
+                          <div className="flex items-center justify-between w-full">
+                            <span>{timeframe.label}</span>
+                            <Badge 
+                              variant="secondary" 
+                              className={`ml-2 text-xs ${getSeasonBadgeColor(timeframe.season)}`}
+                            >
+                              {getSeasonIcon(timeframe.season)} {timeframe.season}
+                            </Badge>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               {formData.dates && (
                 <div className="mt-2 p-2 rounded-md bg-gray-50">
                   <p className="text-xs" style={{ color: '#717182' }}>
@@ -375,7 +457,43 @@ export function PassengerFlow({ onNavigate, userJourney }: PassengerFlowProps) {
       <div className="mb-8 text-center">
         <Users className="w-12 h-12 mx-auto mb-4" style={{ color: '#FFB703' }} />
         <h2 className="text-2xl mb-2" style={{ color: '#023047' }}>Why do you travel?</h2>
-        <p style={{ color: '#717182' }}>Select all that apply - this helps us prioritize routes</p>
+        {(() => {
+          const selectedTimeframe = travelTimeframes.find(t => t.value === formData.dates);
+          const isCarnival = formData.dates?.includes('carnival') || formData.dates?.includes('february') || formData.dates?.includes('march');
+          const isSummer = formData.dates?.includes('summer') || formData.dates?.includes('july') || formData.dates?.includes('august');
+          const isChristmas = formData.dates?.includes('christmas') || formData.dates?.includes('december') || formData.dates?.includes('january');
+          
+          if (isCarnival) {
+            return (
+              <div>
+                <p style={{ color: '#717182' }}>Perfect timing for Carnival season! 🎭</p>
+                <p className="text-sm mt-2 p-2 bg-yellow-50 rounded-md" style={{ color: '#B45309' }}>
+                  🎉 Would you be interested in traveling during Carnival week?
+                </p>
+              </div>
+            );
+          } else if (isSummer) {
+            return (
+              <div>
+                <p style={{ color: '#717182' }}>Great choice for summer travel! ☀️</p>
+                <p className="text-sm mt-2 p-2 bg-blue-50 rounded-md" style={{ color: '#1E40AF' }}>
+                  🏖️ Summer holidays are perfect for family reunions and celebrations
+                </p>
+              </div>
+            );
+          } else if (isChristmas) {
+            return (
+              <div>
+                <p style={{ color: '#717182' }}>Christmas season - time for family! 🎄</p>
+                <p className="text-sm mt-2 p-2 bg-green-50 rounded-md" style={{ color: '#166534' }}>
+                  🎁 Perfect time for family reunions and celebrations
+                </p>
+              </div>
+            );
+          } else {
+            return <p style={{ color: '#717182' }}>Select all that apply - this helps us prioritize routes</p>;
+          }
+        })()}
         {formData.reasons.length > 0 && (
           <div className="mt-3 p-2 bg-blue-50 rounded-md">
             <p className="text-sm" style={{ color: '#1CAFBF' }}>
@@ -383,45 +501,132 @@ export function PassengerFlow({ onNavigate, userJourney }: PassengerFlowProps) {
             </p>
           </div>
         )}
+
+        {/* Community Signals */}
+        {formData.reasons.length > 0 && (
+          <div className="mt-4 p-4 bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-lg">
+            <div className="flex items-center gap-2 mb-3">
+              <Users className="w-5 h-5 text-green-600" />
+              <h3 className="text-sm font-medium text-green-900">Community Interest</h3>
+            </div>
+            
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-green-700">People interested in this route:</span>
+                <span className="font-semibold text-green-900">{getCommunityMetrics().totalInterest}+</span>
+              </div>
+              
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-green-700">From your country:</span>
+                <span className="font-semibold text-green-900">
+                  {Math.round(getCommunityMetrics().totalInterest * 0.3)}+
+                </span>
+              </div>
+              
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-green-700">Similar travel dates:</span>
+                <span className="font-semibold text-green-900">
+                  {Math.round(getCommunityMetrics().totalInterest * 0.4)}+
+                </span>
+              </div>
+            </div>
+            
+            <div className="mt-3 p-2 bg-white rounded border border-green-200">
+              <div className="flex items-center gap-2 mb-1">
+                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                <span className="text-xs text-green-700">Route popularity: {getCommunityMetrics().progressPercentage}%</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-1.5">
+                <div 
+                  className="h-1.5 rounded-full bg-gradient-to-r from-green-400 to-blue-400 transition-all duration-1000"
+                  style={{ width: `${getCommunityMetrics().progressPercentage}%` }}
+                />
+              </div>
+            </div>
+            
+            <div className="mt-2 text-xs text-green-600">
+              💡 More interest = better rates and more travel options
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="space-y-3">
-        {travelReasons.map((reason) => (
-          <motion.button
-            key={reason.id}
-            onClick={(e) => {
-              e.stopPropagation();
-              updateForm({ reasons: toggleSelection(formData.reasons, reason.id) });
-            }}
-            className={`w-full p-4 rounded-lg border-2 flex items-center gap-4 transition-all text-left ${
-              formData.reasons.includes(reason.id)
-                ? 'border-current bg-gray-50' 
-                : 'border-gray-200 hover:border-gray-300 hover:shadow-sm'
-            }`}
-            style={{ 
-              borderColor: formData.reasons.includes(reason.id) ? reason.color : undefined,
-              color: formData.reasons.includes(reason.id) ? reason.color : '#717182'
-            }}
-            whileHover={{ scale: 1.01 }}
-            whileTap={{ scale: 0.99 }}
-            aria-pressed={formData.reasons.includes(reason.id)}
-            aria-describedby={`reason-${reason.id}-desc`}
-            data-no-swipe="true"
-          >
-            <reason.icon className="w-8 h-8 flex-shrink-0" />
-            <div className="flex-1">
-              <div className="flex items-center gap-2">
-                <span className="font-medium">{reason.label}</span>
-                {formData.reasons.includes(reason.id) && (
-                  <Check className="w-4 h-4" style={{ color: reason.color }} />
-                )}
+        {(() => {
+          // Get contextual travel reasons based on selected dates/seasons
+          const getContextualReasons = () => {
+            const isCarnival = formData.dates?.includes('carnival') || formData.dates?.includes('february') || formData.dates?.includes('march');
+            const isSummer = formData.dates?.includes('summer') || formData.dates?.includes('july') || formData.dates?.includes('august');
+            const isChristmas = formData.dates?.includes('christmas') || formData.dates?.includes('december') || formData.dates?.includes('january');
+            
+            if (isCarnival) {
+              return [
+                { ...travelReasons[0], label: 'Carnival Celebrations', description: 'Join the biggest party in the Caribbean! 🎭' },
+                { ...travelReasons[1], label: 'Carnival Business', description: 'Networking during peak season' },
+                { ...travelReasons[2], label: 'Cultural Events', description: 'Experience Caribbean culture at its finest' },
+                { ...travelReasons[3], label: 'Carnival Education', description: 'Learn about Caribbean traditions' },
+                { ...travelReasons[4], label: 'Carnival Sports', description: 'Cricket, football, and more during carnival' }
+              ];
+            } else if (isSummer) {
+              return [
+                { ...travelReasons[0], label: 'Summer Family Reunions', description: 'Perfect weather for family gatherings 🏖️' },
+                { ...travelReasons[1], label: 'Summer Business', description: 'Conferences and meetings in paradise' },
+                { ...travelReasons[2], label: 'Summer Festivals', description: 'Music festivals and cultural events' },
+                { ...travelReasons[3], label: 'Summer Study', description: 'Educational programs and workshops' },
+                { ...travelReasons[4], label: 'Summer Sports', description: 'Beach sports and competitions' }
+              ];
+            } else if (isChristmas) {
+              return [
+                { ...travelReasons[0], label: 'Christmas Family Time', description: 'Celebrate the holidays with loved ones 🎄' },
+                { ...travelReasons[1], label: 'Holiday Business', description: 'Year-end meetings and planning' },
+                { ...travelReasons[2], label: 'Christmas Events', description: 'Holiday celebrations and traditions' },
+                { ...travelReasons[3], label: 'Holiday Education', description: 'Winter break learning opportunities' },
+                { ...travelReasons[4], label: 'Holiday Sports', description: 'Christmas tournaments and games' }
+              ];
+            } else {
+              return travelReasons;
+            }
+          };
+
+          const contextualReasons = getContextualReasons();
+
+          return contextualReasons.map((reason) => (
+            <motion.button
+              key={reason.id}
+              onClick={(e) => {
+                e.stopPropagation();
+                updateForm({ reasons: toggleSelection(formData.reasons, reason.id) });
+              }}
+              className={`w-full p-4 rounded-lg border-2 flex items-center gap-4 transition-all text-left ${
+                formData.reasons.includes(reason.id)
+                  ? 'border-current bg-gray-50' 
+                  : 'border-gray-200 hover:border-gray-300 hover:shadow-sm'
+              }`}
+              style={{ 
+                borderColor: formData.reasons.includes(reason.id) ? reason.color : undefined,
+                color: formData.reasons.includes(reason.id) ? reason.color : '#717182'
+              }}
+              whileHover={{ scale: 1.01 }}
+              whileTap={{ scale: 0.99 }}
+              aria-pressed={formData.reasons.includes(reason.id)}
+              aria-describedby={`reason-${reason.id}-desc`}
+              data-no-swipe="true"
+            >
+              <reason.icon className="w-8 h-8 flex-shrink-0" />
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">{reason.label}</span>
+                  {formData.reasons.includes(reason.id) && (
+                    <Check className="w-4 h-4" style={{ color: reason.color }} />
+                  )}
+                </div>
+                <p id={`reason-${reason.id}-desc`} className="text-sm opacity-75 mt-1">
+                  {reason.description}
+                </p>
               </div>
-              <p id={`reason-${reason.id}-desc`} className="text-sm opacity-75 mt-1">
-                {reason.description}
-              </p>
-            </div>
-          </motion.button>
-        ))}
+            </motion.button>
+          ));
+        })()}
       </div>
 
       {formData.reasons.length === 0 && (
@@ -452,7 +657,7 @@ export function PassengerFlow({ onNavigate, userJourney }: PassengerFlowProps) {
       </div>
 
       {relevantEvents.length > 0 ? (
-        <div className="space-y-3 max-h-80 overflow-y-auto">
+        <div className="space-y-3 max-h-80 overflow-y-auto px-2 py-2">
           {relevantEvents.map((event) => (
             <Card 
               key={event.id} 
@@ -688,6 +893,46 @@ export function PassengerFlow({ onNavigate, userJourney }: PassengerFlowProps) {
         </div>
       </div>
 
+      {/* Join the Movement CTA */}
+      <div className="mt-6 p-4 bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-lg">
+        <div className="text-center mb-4">
+          <h3 className="text-lg font-semibold mb-2" style={{ color: '#023047' }}>
+            Join the Movement
+          </h3>
+          <p className="text-sm" style={{ color: '#717182' }}>
+            Be part of the Caribbean travel revolution
+          </p>
+        </div>
+        
+        <div className="grid grid-cols-1 gap-3">
+          <motion.button
+            className="w-full p-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg font-medium text-sm flex items-center justify-center gap-2"
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            data-no-swipe="true"
+          >
+            <Users className="w-4 h-4" />
+            Sign Up for Travel Alerts
+          </motion.button>
+          
+          <motion.button
+            className="w-full p-3 border-2 border-purple-300 text-purple-700 rounded-lg font-medium text-sm flex items-center justify-center gap-2"
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            data-no-swipe="true"
+          >
+            <CheckCircle className="w-4 h-4" />
+            Join the Community
+          </motion.button>
+        </div>
+        
+        <div className="mt-3 text-xs text-center" style={{ color: '#717182' }}>
+          <p>✓ Get notified when your route becomes available</p>
+          <p>✓ Connect with fellow Caribbean travelers</p>
+          <p>✓ Access exclusive launch pricing and deals</p>
+        </div>
+      </div>
+
       <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
         <p className="text-sm text-blue-800">
           ✈️ <strong>Thank you!</strong> Your travel intent helps us understand which routes to prioritize. 
@@ -703,7 +948,7 @@ export function PassengerFlow({ onNavigate, userJourney }: PassengerFlowProps) {
         {/* Header */}
         <div className="p-6 flex items-center justify-between border-b border-gray-200">
           <button
-            onClick={handleBack}
+            onClick={currentStep === STEPS.ROUTE_DATE ? () => onNavigate('left') : handleBack}
             className="flex items-center gap-2 text-sm"
             style={{ color: '#717182' }}
           >
@@ -760,7 +1005,7 @@ export function PassengerFlow({ onNavigate, userJourney }: PassengerFlowProps) {
           <div className="flex gap-4 max-w-md mx-auto">
             <Button 
               variant="outline" 
-              onClick={handleBack} 
+              onClick={currentStep === STEPS.ROUTE_DATE ? () => onNavigate('left') : handleBack} 
               className="flex-1"
               aria-label={currentStep === STEPS.ROUTE_DATE ? 'Return to home' : 'Go back to previous step'}
             >
