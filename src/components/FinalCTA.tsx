@@ -5,25 +5,85 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Checkbox } from './ui/checkbox';
+import { submitSurvey } from '../services/submit';
+import type { UserJourneyData } from '../hooks/useUserJourney';
 
 interface FinalCTAProps {
   onNavigate: (direction: 'up' | 'down' | 'left' | 'right') => void;
+  userJourney?: {
+    journeyData: UserJourneyData;
+  };
 }
 
-export function FinalCTA({ onNavigate }: FinalCTAProps) {
+export function FinalCTA({ onNavigate, userJourney }: FinalCTAProps) {
   const [formData, setFormData] = useState({
-    email: '',
+    email: userJourney?.journeyData?.email || '',
     whatsapp: '',
     emailUpdates: true,
     whatsappUpdates: false,
     communityUpdates: true
   });
   const [submitted, setSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Simulate form submission
-    setSubmitted(true);
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      const payload = {
+        respondent: {
+          email: formData.email,
+          whatsapp: formData.whatsapp || undefined,
+          user_type: userJourney?.journeyData?.userType || 'passenger',
+          origin: userJourney?.journeyData?.origin,
+          destination: userJourney?.journeyData?.destination,
+          metadata: {
+            preferences: {
+              emailUpdates: formData.emailUpdates,
+              whatsappUpdates: formData.whatsappUpdates,
+              communityUpdates: formData.communityUpdates
+            },
+            source: 'final_cta',
+            passengerDetails: userJourney?.journeyData?.passengerDetails,
+            cargoDetails: userJourney?.journeyData?.cargoDetails,
+            partnerDetails: userJourney?.journeyData?.partnerDetails
+          }
+        },
+        responses: [
+          {
+            question_code: 'cta.email',
+            answer_text: formData.email
+          },
+          ...(formData.whatsapp ? [{
+            question_code: 'cta.whatsapp',
+            answer_text: formData.whatsapp
+          }] : []),
+          {
+            question_code: 'cta.pref_email',
+            answer_bool: formData.emailUpdates
+          },
+          {
+            question_code: 'cta.pref_whatsapp',
+            answer_bool: formData.whatsappUpdates
+          },
+          {
+            question_code: 'cta.pref_community',
+            answer_bool: formData.communityUpdates
+          }
+        ]
+      };
+
+      await submitSurvey(payload);
+      setSubmitted(true);
+    } catch (err: any) {
+      console.error('Erreur lors de la soumission:', err);
+      setError(err.message || 'Erreur lors de la soumission. Veuillez réessayer.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (submitted) {
@@ -140,6 +200,12 @@ export function FinalCTA({ onNavigate }: FinalCTAProps) {
               </p>
             </div>
 
+            {error && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+                <p className="text-sm text-red-600">{error}</p>
+              </div>
+            )}
+
             <form onSubmit={handleSubmit} className="space-y-6">
               {/* Email */}
               <div>
@@ -215,11 +281,12 @@ export function FinalCTA({ onNavigate }: FinalCTAProps) {
               {/* Submit Button */}
               <Button
                 type="submit"
-                className="w-full text-white"
+                disabled={isSubmitting}
+                className="w-full text-white disabled:opacity-50"
                 style={{ backgroundColor: '#1CAFBF' }}
               >
-                Join the Movement
-                <Send className="w-4 h-4 ml-2" />
+                {isSubmitting ? 'Envoi en cours...' : 'Join the Movement'}
+                {!isSubmitting && <Send className="w-4 h-4 ml-2" />}
               </Button>
             </form>
 

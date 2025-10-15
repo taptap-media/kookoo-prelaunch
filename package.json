@@ -54,7 +54,8 @@
             "sonner": "^2.0.3",
             "tailwind-merge": "*",
             "vaul": "^1.1.2",
-            "zod": "^4.1.11"
+            "zod": "^4.1.11",
+            "concurrently": "^8.2.2"
       },
       "devDependencies": {
             "@types/cors": "^2.8.19",
@@ -69,6 +70,10 @@
       },
       "scripts": {
             "dev": "vite",
-            "build": "vite build"
+            "build": "vite build",
+            "server:dev": "cd server && npm run dev",
+            "server:build": "cd server && npm run build",
+            "server:start": "cd server && npm start",
+            "dev:full": "concurrently \"npm run server:dev\" \"npm run dev\""
       }
 }

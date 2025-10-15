@@ -1,20 +1,29 @@
 import express from 'express'
 import { Response, Request } from 'express'
 import { createClient } from '@supabase/supabase-js'
-import { withTransaction } from '../services/db'
+import dotenv from 'dotenv'
+// import { withTransaction } from '../services/db' // Désactivé pour simplifier
 import { ResponsePayload } from '../validation/submit'
+
+// Charger les variables d'environnement
+dotenv.config()
 
 const router = express.Router()
 
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || ''
 const SUPABASE_SERVICE_ROLE = process.env.SUPABASE_SERVICE_ROLE || ''
 
+// Debug des variables d'environnement
+console.log('SUPABASE_URL:', SUPABASE_URL ? 'SET' : 'MISSING')
+console.log('SUPABASE_SERVICE_ROLE:', SUPABASE_SERVICE_ROLE ? 'SET' : 'MISSING')
+
 let supabase: ReturnType<typeof createClient> | null = null
 if (SUPABASE_URL && SUPABASE_SERVICE_ROLE) {
   // Initialize server-side Supabase client only if service role key is available
   supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE, { auth: { persistSession: false } })
+  console.log('✅ Supabase client initialized successfully')
 } else {
-  console.warn('Server Supabase client not initialized: SUPABASE_SERVICE_ROLE missing. Falling back to direct DB when possible.')
+  console.warn('❌ Server Supabase client not initialized: SUPABASE_SERVICE_ROLE missing. Falling back to direct DB when possible.')
 }
 
 // helper to find question id by code using a pg client
@@ -57,77 +66,8 @@ router.post('/', async (req: Request, res: Response) => {
       metadata: parsed.respondent.metadata ?? null
     }
 
-    // Use pg transaction for atomicity if DATABASE_URL is configured
-    if (process.env.DATABASE_URL) {
-      const result = await withTransaction(async (client) => {
-        // Find existing respondent by email (lowercased) or whatsapp
-        let respondent_id: string | null = await findRespondentByEmailOrWhatsapp(client, respondent.email, respondent.whatsapp)
-
-        if (respondent_id) {
-          // Update existing respondent
-          const upd = await client.query(
-            `UPDATE respondents SET email=$1, whatsapp=$2, user_type=$3, origin=$4, destination=$5, metadata=$6, updated_at=now() WHERE id=$7 RETURNING id`,
-            [respondent.email, respondent.whatsapp, respondent.user_type, respondent.origin, respondent.destination, respondent.metadata, respondent_id]
-          )
-          respondent_id = upd.rows[0].id
-        } else {
-          // Insert new respondent
-          const ins = await client.query(
-            `INSERT INTO respondents (email, whatsapp, user_type, origin, destination, metadata) VALUES ($1,$2,$3,$4,$5,$6) RETURNING id`,
-            [respondent.email, respondent.whatsapp, respondent.user_type, respondent.origin, respondent.destination, respondent.metadata]
-          )
-          respondent_id = ins.rows[0].id
-        }
-
-        // Insert responses
-        for (const r of parsed.responses) {
-          const question_id = await getQuestionIdByCode(client, r.question_code)
-          if (!question_id) {
-            console.warn('Unknown question code, skipping', r.question_code)
-            continue
-          }
-
-          const insertResp: { [key: string]: any } = {
-            respondent_id,
-            question_id,
-            answer_text: r.answer_text ?? null,
-            answer_number: r.answer_number ?? null,
-            answer_bool: r.answer_bool ?? null,
-            answer_json: r.answer_json ?? null,
-            option_id: null as string | null
-          }
-
-          if (r.option_code) {
-            const optId = await getOptionIdByCode(client, question_id, r.option_code)
-            insertResp.option_id = optId
-          }
-
-          // Build insert / upsert for responses. We always include respondent_id and question_id
-          const cols = [] as string[]
-          const vals = [] as any[]
-          for (const [k, v] of Object.entries(insertResp)) {
-            // Only include defined values (null is valid and preserved)
-            if (v !== undefined) {
-              cols.push(k)
-              vals.push(v)
-            }
-          }
-
-          const placeholders = vals.map((_, i) => `$${i + 1}`).join(', ')
-          const nonKeyCols = cols.filter((c) => c !== 'respondent_id' && c !== 'question_id')
-          const updateClause = nonKeyCols.length > 0 ? nonKeyCols.map((c) => `${c} = EXCLUDED.${c}`).join(', ') : 'updated_at = now()'
-          const qText = `INSERT INTO responses (${cols.join(', ')}) VALUES (${placeholders}) ON CONFLICT (respondent_id, question_id) DO UPDATE SET ${updateClause} RETURNING id`
-          await client.query(qText, vals)
-        }
-
-        return { ok: true, respondent_id }
-      })
-
-      return res.status(201).json(result)
-    }
-
-    // Fallback: use Supabase client for writes (less transactional)
-    if (!supabase) throw new Error('Supabase service role client not configured on server and DATABASE_URL is not provided')
+    // Utilisation de Supabase uniquement
+    if (!supabase) throw new Error('Supabase service role client not configured on server')
 
     const { data: respondentRow, error: rErr } = await (supabase as any)
       .from('respondents')
